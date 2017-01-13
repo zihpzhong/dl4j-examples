@@ -22,6 +22,7 @@ import java.util.Random;
 
 /**
  * This is an example that illustrates how to instantiate and use a custom activation function.
+ * Refer to the CustomActivation class for details on the implementation
  * The example is identical to the one in org.deeplearning4j.examples.feedforward.regression.RegressionSum
  * except for the custom activation function
  */
