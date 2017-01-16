@@ -44,7 +44,7 @@ public class FeaturizeVGG16NoTop {
     protected static Random rng = new Random(seed);
     protected static int numExamples = 80;
     protected static int numLabels = 4;
-    protected static int batchSize = 30;
+    protected static int batchSize = 16;
     protected static double splitTrainTest = 0.75;
     protected static ParentPathLabelGenerator labelMaker;
 
