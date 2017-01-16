@@ -74,6 +74,7 @@ public class VGGImportImageNet {
 
             System.out.println("==============");
         }
+        System.out.println("ALL DONE");
 
     }
 
@@ -114,7 +115,6 @@ public class VGGImportImageNet {
 
     public static void preProcess(INDArray features) {
         Nd4j.getExecutioner().execAndReturn(new BroadcastSubOp(features.dup(),VGG_MEAN_OFFSET,features,1));
-        features.reshape(1,3,224,224);
     }
 
 }
