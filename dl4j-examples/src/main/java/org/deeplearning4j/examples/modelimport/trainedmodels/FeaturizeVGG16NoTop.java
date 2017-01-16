@@ -58,6 +58,7 @@ public class FeaturizeVGG16NoTop {
 
         //Load "VGG16,no top" into dl4j using KerasModelImporter
         TrainedModelHelper helper = new TrainedModelHelper(TrainedModels.VGG16NOTOP);
+        //NOTE: Once I upload these files these methods go away and will get downloaded to the user's home dir during the first run...
         helper.setPathToH5("/Users/susaneraly/SKYMIND/kerasImport/VGG16/saved/vgg16notop.h5");
         helper.setPathToJSON("/Users/susaneraly/SKYMIND/kerasImport/VGG16/saved/vgg16notop.json");
         vgg16NoTop = helper.loadModel();

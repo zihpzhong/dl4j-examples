@@ -39,6 +39,7 @@ public class PredictWithVGG16 {
 
         //Helper for trained deep learning models
         TrainedModelHelper helper = new TrainedModelHelper(TrainedModels.VGG16);
+        //NOTE: Once I upload these files these methods go away and will get downloaded to the user's home dir during the first run...
         helper.setPathToH5("/Users/susaneraly/SKYMIND/kerasImport/VGG16/saved/vgg16New.h5");
         helper.setPathToJSON("/Users/susaneraly/SKYMIND/kerasImport/VGG16/saved/vgg16New.json");
 
