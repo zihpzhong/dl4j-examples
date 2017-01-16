@@ -44,8 +44,9 @@ public class FeaturizeVGG16NoTop {
     protected static Random rng = new Random(seed);
     protected static int numExamples = 80;
     protected static int numLabels = 4;
-    protected static int batchSize = 2;
-    protected static double splitTrainTest = 0.8;
+    protected static int batchSize = 30;
+    protected static double splitTrainTest = 0.75;
+    protected static ParentPathLabelGenerator labelMaker;
 
     protected static final int height = 224;
     protected static final int width = 224;
@@ -67,7 +68,7 @@ public class FeaturizeVGG16NoTop {
         File mainPath = new File(System.getProperty("user.dir"), "dl4j-examples/src/main/resources/animals/");
         FileSplit fileSplit = new FileSplit(mainPath, NativeImageLoader.ALLOWED_FORMATS, rng);
         BalancedPathFilter pathFilter = new BalancedPathFilter(rng, labelMaker, numExamples, numLabels, batchSize);
-        InputSplit[] inputSplit = fileSplit.sample(pathFilter, numExamples * (1 + splitTrainTest), numExamples * (1 - splitTrainTest));
+        InputSplit[] inputSplit = fileSplit.sample(pathFilter, numExamples * splitTrainTest, numExamples * (1 - splitTrainTest));
         InputSplit trainData = inputSplit[0];
         InputSplit testData = inputSplit[1];
 
@@ -78,7 +79,7 @@ public class FeaturizeVGG16NoTop {
         log.info("Running through the test split...");
         File testFolder = new File("testFolder");
         testFolder.mkdirs();
-        preSaver(trainData,testFolder);
+        preSaver(testData,testFolder);
 
     }
 
@@ -94,8 +95,10 @@ public class FeaturizeVGG16NoTop {
             INDArray features = next.getFeatures();
             INDArray[] outputA = vgg16NoTop.output(false,features);
             INDArray output = Nd4j.concat(0,outputA);
-            //Writes the featurized images as a new dataset
-            DataSet featurized = new DataSet(output,next.getLabels());
+            int batchSize = output.size(0);
+            int featureSize = output.length()/batchSize;
+            //Writes the featurized images as a new dataset - we flatten the array before writing since we are going to train a simple MLP
+            DataSet featurized = new DataSet(output.reshape(batchSize,featureSize),next.getLabels());
             featurized.save(new File(saveFolder,"featurized-" + batch + ".bin"));
             batch++;
         }
