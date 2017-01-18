@@ -42,8 +42,8 @@ public class FeaturizeVGG16NoTop {
     protected static final Logger log = LoggerFactory.getLogger(FeaturizeVGG16NoTop.class);
     protected static long seed = 42;
     protected static Random rng = new Random(seed);
-    protected static int numExamples = 80;
-    protected static int numLabels = 4;
+    protected static int numExamples = 3777;
+    protected static int numLabels = 8;
     protected static int batchSize = 16;
     protected static double splitTrainTest = 0.75;
     protected static ParentPathLabelGenerator labelMaker;
@@ -66,10 +66,10 @@ public class FeaturizeVGG16NoTop {
         log.info("Setting up the image pipeline and conducting the train and test splits....");
         //Refer to the AnimalsClassification example for more details
         ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
-        File mainPath = new File(System.getProperty("user.dir"), "dl4j-examples/src/main/resources/animals/");
+        File mainPath = new File(System.getProperty("user.home"), "SKYMIND/kerasImport/VGG16/dl4j-blog-post/train/");
         FileSplit fileSplit = new FileSplit(mainPath, NativeImageLoader.ALLOWED_FORMATS, rng);
         BalancedPathFilter pathFilter = new BalancedPathFilter(rng, labelMaker, numExamples, numLabels, batchSize);
-        InputSplit[] inputSplit = fileSplit.sample(pathFilter, numExamples * splitTrainTest, numExamples * (1 - splitTrainTest));
+        InputSplit[] inputSplit = fileSplit.sample(pathFilter, 100 * splitTrainTest, 100 * (1 - splitTrainTest));
         InputSplit trainData = inputSplit[0];
         InputSplit testData = inputSplit[1];
 
