@@ -1,6 +1,7 @@
 package org.deeplearning4j.examples.nlp.word2vec;
 
 import org.datavec.api.util.ClassPathResource;
+import org.deeplearning4j.models.embeddings.loader.WordVectorSerializer;
 import org.deeplearning4j.models.word2vec.Word2Vec;
 import org.deeplearning4j.text.sentenceiterator.BasicLineIterator;
 import org.deeplearning4j.text.sentenceiterator.SentenceIterator;
@@ -57,10 +58,13 @@ public class Word2VecRawTextExample {
 
         log.info("Writing word vectors to text file....");
 
+        // Write word vectors to file
+        WordVectorSerializer.writeWordVectors(vec, "pathToWriteto.txt");
+
         // Prints out the closest 10 words to "day". An example on what to do with these Word Vectors.
         log.info("Closest Words:");
-        Collection<String> lst = vec.wordsNearestSum("day", 10);
-        log.info("10 Words closest to 'day': {}", lst);
+        Collection<String> lst = vec.wordsNearest("day", 10);
+        System.out.println("10 Words closest to 'day': " + lst);
 
         // TODO resolve missing UiServer
 //        UiServer server = UiServer.getInstance();

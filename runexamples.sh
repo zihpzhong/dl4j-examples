@@ -89,6 +89,7 @@ eval "arr=($(find_examples))"
 
 cd $dir
 
+
 # Invoke with
 #   NOOP=echo runexamples.sh
 # to echo the command, but not run it.
@@ -98,29 +99,25 @@ runit() {
 }
 
 let which_one=0
-error="ERROR: Must enter a number between 1 and ${#arr[@]}"
-re='^[0-9]+$'
-
 if [ $all -ne 0 ]
 then
 
-  for index in "${!arr[@]}" # ! returns indices instead
+  for index in "${!arr[@]}"   # ! returns indices instead
   do
     let i=$index+1
     echo "[$(printf "%2d" $i)] ${arr[$index]}"
   done
-  printf "\nEnter a number for the example to run (q to quit): "
+  printf "Enter a number for the example to run: "
   read which_one
-  if [ -z "$which_one" ]; then
-    echo $error
-    exit 1
-  elif [ $which_one = 'q' ]; then
+  if [ -z "$which_one" ]
+  then
+    which_one=0
+  elif [ $which_one = 'q' ]  # accept 'q' as "quit".
+  then
     exit 0
-  elif ! [[ $which_one =~ $re ]]; then 
-    echo $error
-    exit 1
-  elif [ $which_one -le 0 -o $which_one -gt ${#arr[@]} ]; then
-    echo $error
+  elif [ $which_one -le 0 -o $which_one -gt ${#arr[@]} ]
+  then
+    echo "ERROR: Must enter a number between 1 and ${#arr[@]}."
     exit 1
   else
     let which_one=$which_one-1
@@ -132,7 +129,7 @@ else
 
   banner
 
-  # now loop through the above array
+  ## now loop through the above array
   for e in "${arr[@]}"
   do
     runit "$e"

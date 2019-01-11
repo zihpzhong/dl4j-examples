@@ -1,15 +1,13 @@
 package org.deeplearning4j.examples.rl4j;
 
-import java.io.IOException;
 import org.deeplearning4j.rl4j.space.Box;
 import org.deeplearning4j.rl4j.learning.async.AsyncLearning;
 import org.deeplearning4j.rl4j.learning.async.nstep.discrete.AsyncNStepQLearningDiscrete;
 import org.deeplearning4j.rl4j.learning.async.nstep.discrete.AsyncNStepQLearningDiscreteDense;
+
 import org.deeplearning4j.rl4j.mdp.gym.GymEnv;
 import org.deeplearning4j.rl4j.network.dqn.DQNFactoryStdDense;
-import org.deeplearning4j.rl4j.policy.DQNPolicy;
 import org.deeplearning4j.rl4j.util.DataManager;
-import org.nd4j.linalg.learning.config.Adam;
 
 /**
  * @author rubenfiszel (ruben.fiszel@epfl.ch) on 8/18/16.
@@ -35,21 +33,26 @@ public class AsyncNStepCartpole {
                     9000     //num step for eps greedy anneal
             );
 
-
     public static DQNFactoryStdDense.Configuration CARTPOLE_NET_NSTEP =
-        DQNFactoryStdDense.Configuration.builder()
-        .l2(0.001).updater(new Adam(0.0005)).numHiddenNodes(16).numLayer(3).build();
+            new DQNFactoryStdDense.Configuration(
+                    3,         //number of layers
+                    16,        //number of hidden nodes
+                    0.0005,    //learning rate
+                    0.001      //l2 regularization
+            );
 
 
-    public static void main(String[] args) throws IOException {
+    public static void main( String[] args )
+    {
         cartPole();
     }
 
 
-    public static void cartPole() throws IOException {
+    public static void cartPole() {
 
         //record the training data in rl4j-data in a new folder
         DataManager manager = new DataManager(true);
+
         //define the mdp from gym (name, render)
         GymEnv mdp = null;
         try {
@@ -64,16 +67,11 @@ public class AsyncNStepCartpole {
         //train
         dql.train();
 
-        //get the final policy
-        DQNPolicy<Box> pol = (DQNPolicy<Box>)dql.getPolicy();
-
-        //serialize and save (serialization showcase, but not required)
-        pol.save("/tmp/pol1");
-
         //close the mdp (close connection)
         mdp.close();
 
-        //reload the policy, will be equal to "pol"
-        DQNPolicy<Box> pol2 = DQNPolicy.load("/tmp/pol1");
+
     }
+
+
 }

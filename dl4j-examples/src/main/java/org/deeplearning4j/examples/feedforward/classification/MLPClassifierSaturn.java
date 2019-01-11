@@ -20,7 +20,6 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.io.ClassPathResource;
-import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 
 import java.io.File;
@@ -66,7 +65,10 @@ public class MLPClassifierSaturn {
         //log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
-                .updater(new Nesterovs(learningRate, 0.9))
+                .iterations(1)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .learningRate(learningRate)
+                .updater(Updater.NESTEROVS).momentum(0.9)
                 .list()
                 .layer(0, new DenseLayer.Builder().nIn(numInputs).nOut(numHiddenNodes)
                         .weightInit(WeightInit.XAVIER)
@@ -76,7 +78,7 @@ public class MLPClassifierSaturn {
                         .weightInit(WeightInit.XAVIER)
                         .activation(Activation.SOFTMAX)
                         .nIn(numHiddenNodes).nOut(numOutputs).build())
-                .build();
+                .pretrain(false).backprop(true).build();
 
 
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
@@ -91,7 +93,7 @@ public class MLPClassifierSaturn {
         Evaluation eval = new Evaluation(numOutputs);
         while(testIter.hasNext()){
             DataSet t = testIter.next();
-            INDArray features = t.getFeatures();
+            INDArray features = t.getFeatureMatrix();
             INDArray lables = t.getLabels();
             INDArray predicted = model.output(features,false);
 

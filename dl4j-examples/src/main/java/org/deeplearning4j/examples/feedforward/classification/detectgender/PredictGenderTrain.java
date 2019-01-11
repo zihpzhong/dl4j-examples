@@ -5,7 +5,6 @@ package org.deeplearning4j.examples.feedforward.classification.detectgender;
  */
 
 import org.datavec.api.split.FileSplit;
-import org.deeplearning4j.api.storage.StatsStorage;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
@@ -16,15 +15,12 @@ import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
-import org.deeplearning4j.ui.api.UIServer;
-import org.deeplearning4j.ui.stats.StatsListener;
-import org.deeplearning4j.ui.storage.InMemoryStatsStorage;
+import org.deeplearning4j.ui.weights.HistogramIterationListener;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
-import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.io.*;
@@ -85,8 +81,11 @@ public class PredictGenderTrain
             MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
                 .biasInit(1)
-                .l2(1e-4)
-                .updater(new Nesterovs(learningRate, 0.9))
+                .regularization(true).l2(1e-4)
+                .iterations(1)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .learningRate(learningRate)
+                .updater(Updater.NESTEROVS).momentum(0.9)
                 .list()
                 .layer(0, new DenseLayer.Builder().nIn(numInputs).nOut(numHiddenNodes)
                     .weightInit(WeightInit.XAVIER)
@@ -100,15 +99,12 @@ public class PredictGenderTrain
                     .weightInit(WeightInit.XAVIER)
                     .activation(Activation.SOFTMAX)
                     .nIn(numHiddenNodes).nOut(numOutputs).build())
-                .build();
+                .pretrain(false).backprop(true).build();
 
             MultiLayerNetwork model = new MultiLayerNetwork(conf);
             model.init();
+            model.setListeners(new HistogramIterationListener(10));
 
-            UIServer uiServer = UIServer.getInstance();
-            StatsStorage statsStorage = new InMemoryStatsStorage();
-            uiServer.attach(statsStorage);
-            model.setListeners(new StatsListener(statsStorage));
 
             for ( int n = 0; n < nEpochs; n++)
             {
@@ -125,7 +121,7 @@ public class PredictGenderTrain
             Evaluation eval = new Evaluation(numOutputs);
             while(testIter.hasNext()){
                 DataSet t = testIter.next();
-                INDArray features = t.getFeatures();
+                INDArray features = t.getFeatureMatrix();
                 INDArray lables = t.getLabels();
                 INDArray predicted = model.output(features,false);
 

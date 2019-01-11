@@ -14,7 +14,6 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.util.Collections;
@@ -28,6 +27,7 @@ import java.util.Random;
  */
 public class CustomActivationExample {
     public static final int seed = 12345;
+    public static final int iterations = 1;
     public static final int nEpochs = 500;
     public static final int nSamples = 1000;
     public static final int batchSize = 100;
@@ -47,8 +47,11 @@ public class CustomActivationExample {
         int nHidden = 10;
         MultiLayerNetwork net = new MultiLayerNetwork(new NeuralNetConfiguration.Builder()
             .seed(seed)
+            .iterations(iterations)
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+            .learningRate(learningRate)
             .weightInit(WeightInit.XAVIER)
-            .updater(new Nesterovs(learningRate, 0.9))
+            .updater(Updater.NESTEROVS).momentum(0.95)
             .list()
             //INSTANTIATING CUSTOM ACTIVATION FUNCTION here as follows
             //Refer to CustomActivation class for more details on implementation
@@ -58,7 +61,7 @@ public class CustomActivationExample {
             .layer(1, new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
                 .activation(Activation.IDENTITY)
                 .nIn(nHidden).nOut(numOutputs).build())
-            .build()
+            .pretrain(false).backprop(true).build()
         );
         net.init();
         net.setListeners(new ScoreIterationListener(100));

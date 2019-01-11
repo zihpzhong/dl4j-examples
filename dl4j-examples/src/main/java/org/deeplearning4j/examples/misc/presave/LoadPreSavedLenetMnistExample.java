@@ -19,7 +19,6 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.ExistingMiniBatchDataSetIterator;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
-import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +59,7 @@ public class LoadPreSavedLenetMnistExample {
         int nChannels = 1; // Number of input channels
         int outputNum = 10; // The number of possible outcomes
         int nEpochs = 1; // Number of training epochs
+        int iterations = 1; // Number of training iterations
         int seed = 123; //
 
         /*
@@ -97,9 +97,16 @@ public class LoadPreSavedLenetMnistExample {
         log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
             .seed(seed)
-            .l2(0.0005)
-            .updater(new Nesterovs(0.01, 0.9))
+            .iterations(iterations) // Training iterations as above
+            .regularization(true).l2(0.0005)
+                /*
+                    Uncomment the following for learning decay and bias
+                 */
+            .learningRate(.01)//.biasLearningRate(0.02)
+            //.learningRateDecayPolicy(LearningRatePolicy.Inverse).lrPolicyDecayRate(0.001).lrPolicyPower(0.75)
             .weightInit(WeightInit.XAVIER)
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+            .updater(Updater.NESTEROVS).momentum(0.9)
             .list()
             .layer(0, new ConvolutionLayer.Builder(5, 5)
                 //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
@@ -159,7 +166,7 @@ public class LoadPreSavedLenetMnistExample {
             Evaluation eval = new Evaluation(outputNum);
             while(mnistTest.hasNext()){
                 DataSet ds = mnistTest.next();
-                INDArray output = model.output(ds.getFeatures(), false);
+                INDArray output = model.output(ds.getFeatureMatrix(), false);
                 eval.eval(ds.getLabels(), output);
 
             }

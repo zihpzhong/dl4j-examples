@@ -84,6 +84,7 @@ public class SequenceVectorsTextExample {
         */
 
         WeightLookupTable<VocabWord> lookupTable = new InMemoryLookupTable.Builder<VocabWord>()
+                .lr(0.025)
                 .vectorLength(150)
                 .useAdaGrad(false)
                 .cache(vocabCache)

@@ -8,6 +8,7 @@ import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.*;
 
+
 /**
  * Created by susaneraly on 3/27/16.
  * This is class to generate a multidataset from the AdditionRNN problem
@@ -24,7 +25,6 @@ import java.util.*;
 
 public class CustomSequenceIterator implements MultiDataSetIterator {
 
-    private MultiDataSetPreProcessor preProcessor;
     private Random randnumG;
     private final int seed;
     private final int batchSize;
@@ -139,9 +139,8 @@ public class CustomSequenceIterator implements MultiDataSetIterator {
         throw new UnsupportedOperationException("Not supported");
     }
 
-    @Override
-    public MultiDataSetPreProcessor getPreProcessor() {
-        return null;
+    public void setPreProcessor(MultiDataSetPreProcessor multiDataSetPreProcessor) {
+
     }
 
     /*
@@ -201,9 +200,10 @@ public class CustomSequenceIterator implements MultiDataSetIterator {
         //add in digits
         for (int i = 0; i < sumString.length(); i++) {
             decoded[start + i] = Character.toString(sumString.charAt(i));
-            maxIndex ++;
+            maxIndex += i;
         }
 
+        maxIndex++;
         //needed padding
         while (maxIndex <= end) {
             decoded[maxIndex] = " ";
@@ -247,7 +247,7 @@ public class CustomSequenceIterator implements MultiDataSetIterator {
      */
     public static String[] oneHotDecode(INDArray toInterpret) {
 
-        String[] decodedString = new String[(int)toInterpret.size(0)];
+        String[] decodedString = new String[toInterpret.size(0)];
         INDArray oneHotIndices = Nd4j.argMax(toInterpret, 1); //drops a dimension, so now a two dim array of shape batchSize x time_steps
         for (int i = 0; i < oneHotIndices.size(0); i++) {
             int[] currentSlice = oneHotIndices.slice(i).dup().data().asInt(); //each slice is a batch
@@ -290,8 +290,5 @@ public class CustomSequenceIterator implements MultiDataSetIterator {
         oneHotMap.put("End", 13);
 
     }
-
-    public void setPreProcessor(MultiDataSetPreProcessor preProcessor) {
-        this.preProcessor = preProcessor;
-    }
 }
+

@@ -115,34 +115,26 @@ public class SentimentExampleIterator implements DataSetIterator {
 
         //Create data for training
         //Here: we have reviews.size() examples of varying lengths
-        INDArray features = Nd4j.create(new int[]{reviews.size(), vectorSize, maxLength}, 'f');
-        INDArray labels = Nd4j.create(new int[]{reviews.size(), 2, maxLength}, 'f');    //Two labels: positive or negative
+        INDArray features = Nd4j.create(reviews.size(), vectorSize, maxLength);
+        INDArray labels = Nd4j.create(reviews.size(), 2, maxLength);    //Two labels: positive or negative
         //Because we are dealing with reviews of different lengths and only one output at the final time step: use padding arrays
         //Mask arrays contain 1 if data is present at that time step for that example, or 0 if data is just padding
         INDArray featuresMask = Nd4j.zeros(reviews.size(), maxLength);
         INDArray labelsMask = Nd4j.zeros(reviews.size(), maxLength);
 
+        int[] temp = new int[2];
         for( int i=0; i<reviews.size(); i++ ){
             List<String> tokens = allTokens.get(i);
+            temp[0] = i;
+            //Get word vectors for each word in review, and put them in the training data
+            for( int j=0; j<tokens.size() && j<maxLength; j++ ){
+                String token = tokens.get(j);
+                INDArray vector = wordVectors.getWordVectorMatrix(token);
+                features.put(new INDArrayIndex[]{NDArrayIndex.point(i), NDArrayIndex.all(), NDArrayIndex.point(j)}, vector);
 
-            // Get the truncated sequence length of document (i)
-            int seqLength = Math.min(tokens.size(), maxLength);
-
-            // Get all wordvectors for the current document and transpose them to fit the 2nd and 3rd feature shape
-            final INDArray vectors = wordVectors.getWordVectors(tokens.subList(0, seqLength)).transpose();
-
-            // Put wordvectors into features array at the following indices:
-            // 1) Document (i)
-            // 2) All vector elements which is equal to NDArrayIndex.interval(0, vectorSize)
-            // 3) All elements between 0 and the length of the current sequence
-            features.put(
-                new INDArrayIndex[] {
-                    NDArrayIndex.point(i), NDArrayIndex.all(), NDArrayIndex.interval(0, seqLength)
-                },
-                vectors);
-
-            // Assign "1" to each position where a feature is present, that is, in the interval of [0, seqLength)
-            featuresMask.get(new INDArrayIndex[] {NDArrayIndex.point(i), NDArrayIndex.interval(0, seqLength)}).assign(1);
+                temp[1] = j;
+                featuresMask.putScalar(temp, 1.0);  //Word is present (not padding) for this example + time step -> 1.0 in features mask
+            }
 
             int idx = (positive[i] ? 0 : 1);
             int lastIdx = Math.min(tokens.size(),maxLength);
@@ -153,6 +145,7 @@ public class SentimentExampleIterator implements DataSetIterator {
         return new DataSet(features,labels,featuresMask,labelsMask);
     }
 
+    @Override
     public int totalExamples() {
         return positiveFiles.length + negativeFiles.length;
     }
@@ -187,6 +180,16 @@ public class SentimentExampleIterator implements DataSetIterator {
     }
 
     @Override
+    public int cursor() {
+        return cursor;
+    }
+
+    @Override
+    public int numExamples() {
+        return totalExamples();
+    }
+
+    @Override
     public void setPreProcessor(DataSetPreProcessor preProcessor) {
         throw new UnsupportedOperationException();
     }
@@ -198,7 +201,7 @@ public class SentimentExampleIterator implements DataSetIterator {
 
     @Override
     public boolean hasNext() {
-        return cursor < totalExamples();
+        return cursor < numExamples();
     }
 
     @Override
@@ -258,15 +261,10 @@ public class SentimentExampleIterator implements DataSetIterator {
 
         INDArray features = Nd4j.create(1, vectorSize, outputLength);
 
-        int count = 0;
-        for( int j=0; j<tokens.size() && count<maxLength; j++ ){
+        for( int j=0; j<tokens.size() && j<maxLength; j++ ){
             String token = tokens.get(j);
             INDArray vector = wordVectors.getWordVectorMatrix(token);
-            if(vector == null){
-                continue;   //Word not in word vectors
-            }
             features.put(new INDArrayIndex[]{NDArrayIndex.point(0), NDArrayIndex.all(), NDArrayIndex.point(j)}, vector);
-            count++;
         }
 
         return features;

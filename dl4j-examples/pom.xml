@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.deeplearning4j</groupId>
         <artifactId>deeplearning4j-examples-parent</artifactId>
-        <version>1.0.0-beta3</version>
+        <version>0.7-SNAPSHOT</version>
     </parent>
 
     <name>DeepLearning4j Examples</name>
@@ -48,28 +48,22 @@
             </dependency>
             <dependency>
                 <groupId>org.nd4j</groupId>
-                <artifactId>nd4j-cuda-9.0-platform</artifactId>
+                <artifactId>nd4j-cuda-7.5-platform</artifactId>
                 <version>${nd4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.nd4j</groupId>
-                <artifactId>nd4j-cuda-9.2-platform</artifactId>
+                <artifactId>nd4j-cuda-8.0-platform</artifactId>
                 <version>${nd4j.version}</version>
             </dependency>
-            <dependency>
-                <groupId>org.nd4j</groupId>
-                <artifactId>nd4j-cuda-10.0-platform</artifactId>
-                <version>${nd4j.version}</version>
-            </dependency>
-        </dependencies>
+       </dependencies>
     </dependencyManagement>
 
     <dependencies>
-        <!-- ND4J backend. You need one in every DL4J project. Normally define artifactId as either "nd4j-native-platform" or "nd4j-cuda-9.2-platform" -->
+        <!-- ND4J backend. You need one in every DL4J project. Normally define artifactId as either "nd4j-native-platform" or "nd4j-cuda-7.5-platform" -->
         <dependency>
             <groupId>org.nd4j</groupId>
             <artifactId>${nd4j.backend}</artifactId>
-            <version>${nd4j.version}</version>
         </dependency>
 
         <!-- Core DL4J functionality -->
@@ -85,63 +79,18 @@
             <version>${dl4j.version}</version>
         </dependency>
 
+        <!-- deeplearning4j-ui is used for HistogramIterationListener + visualization: see http://deeplearning4j.org/visualization -->
         <dependency>
             <groupId>org.deeplearning4j</groupId>
-            <artifactId>deeplearning4j-zoo</artifactId>
+            <artifactId>deeplearning4j-ui_2.10</artifactId>
             <version>${dl4j.version}</version>
         </dependency>
 
-        <!-- deeplearning4j-ui is used for visualization: see http://deeplearning4j.org/visualization -->
+        <!-- Force guava versions for using UI/HistogramIterationListener -->
         <dependency>
-            <groupId>org.deeplearning4j</groupId>
-            <artifactId>deeplearning4j-ui_${scala.binary.version}</artifactId>
-            <version>${dl4j.version}</version>
-        </dependency>
-
-        <!-- ParallelWrapper & ParallelInference live here -->
-        <dependency>
-            <groupId>org.deeplearning4j</groupId>
-            <artifactId>deeplearning4j-parallel-wrapper</artifactId>
-            <version>${dl4j.version}</version>
-        </dependency>
-
-        <!-- Next 2: used for MapFileConversion Example. Note you need *both* together -->
-        <dependency>
-            <groupId>org.datavec</groupId>
-            <artifactId>datavec-hadoop</artifactId>
-            <version>${datavec.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-common</artifactId>
-            <version>${hadoop.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>jdk.tools</groupId>
-                    <artifactId>jdk.tools</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-
-        <!-- Arbiter - used for hyperparameter optimization (grid/random search) -->
-        <dependency>
-            <groupId>org.deeplearning4j</groupId>
-            <artifactId>arbiter-deeplearning4j</artifactId>
-            <version>${arbiter.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.deeplearning4j</groupId>
-            <artifactId>arbiter-ui_${scala.binary.version}</artifactId>
-            <version>${arbiter.version}</version>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
         </dependency>
 
         <!-- datavec-data-codec: used only in video example for loading video data -->
@@ -169,13 +118,6 @@
             <artifactId>httpclient</artifactId>
             <version>4.3.5</version>
         </dependency>
-
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>${logback.version}</version>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -214,9 +156,7 @@
                             </excludes>
                         </filter>
                     </filters>
-
                 </configuration>
-
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -248,18 +188,5 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>OpenJFX</id>
-            <dependencies>
-                <dependency>
-                    <groupId>com.oracle</groupId>
-                    <artifactId>javafx</artifactId>
-                    <version>${javafx.version}</version>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 
 </project>

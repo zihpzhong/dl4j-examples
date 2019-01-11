@@ -1,6 +1,6 @@
 package org.deeplearning4j.examples.rl4j;
 
-import java.io.IOException;
+
 import org.deeplearning4j.rl4j.learning.ILearning;
 import org.deeplearning4j.rl4j.learning.Learning;
 import org.deeplearning4j.rl4j.learning.async.nstep.discrete.AsyncNStepQLearningDiscrete;
@@ -15,7 +15,6 @@ import org.deeplearning4j.rl4j.network.dqn.DQNFactoryStdDense;
 import org.deeplearning4j.rl4j.network.dqn.IDQN;
 import org.deeplearning4j.rl4j.space.DiscreteSpace;
 import org.deeplearning4j.rl4j.util.DataManager;
-import org.nd4j.linalg.learning.config.Adam;
 
 /**
  * @author rubenfiszel (ruben.fiszel@epfl.ch) on 8/11/16.
@@ -60,18 +59,22 @@ public class Toy {
                     2000        //num step for eps greedy anneal
             );
 
-
     public static DQNFactoryStdDense.Configuration TOY_NET =
-             DQNFactoryStdDense.Configuration.builder()
-        .l2(0.01).updater(new Adam(1e-2)).numLayer(3).numHiddenNodes(16).build();
+            new DQNFactoryStdDense.Configuration(
+                    3,        //number of layers
+                    16,       //number of hidden nodes
+                    0.001,    //learning rate
+                    0.01      //l2 regularization
+            );
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args )
+    {
         simpleToy();
         //toyAsyncNstep();
 
     }
 
-    public static void simpleToy() throws IOException {
+    public static void simpleToy() {
 
         //record the training data in rl4j-data in a new folder
         DataManager manager = new DataManager();
@@ -93,7 +96,7 @@ public class Toy {
 
     }
 
-    public static void hardToy() throws IOException {
+    public static void hardToy() {
 
         //record the training data in rl4j-data in a new folder
         DataManager manager = new DataManager();
@@ -114,7 +117,7 @@ public class Toy {
     }
 
 
-    public static void toyAsyncNstep() throws IOException {
+    public static void toyAsyncNstep() {
 
         //record the training data in rl4j-data in a new folder
         DataManager manager = new DataManager();

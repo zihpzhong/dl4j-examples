@@ -7,7 +7,6 @@ import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.Updater;
 import org.deeplearning4j.nn.conf.distribution.NormalDistribution;
-import org.deeplearning4j.nn.conf.layers.BaseLayer;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
@@ -19,9 +18,6 @@ import org.nd4j.linalg.api.buffer.util.DataTypeUtil;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.IUpdater;
-import org.nd4j.linalg.learning.config.NoOp;
-import org.nd4j.linalg.learning.config.RmsProp;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.io.File;
@@ -40,7 +36,7 @@ public class CustomLayerExample {
     static{
         //Double precision for the gradient checks. See comments in the doGradientCheck() method
         // See also http://nd4j.org/userguide.html#miscdatatype
-        Nd4j.setDataType(DataBuffer.Type.DOUBLE);
+        DataTypeUtil.setDTypeForContext(DataBuffer.Type.DOUBLE);
     }
 
     public static void main(String[] args) throws IOException {
@@ -63,10 +59,10 @@ public class CustomLayerExample {
         //Let's create a network with our custom layer
 
         MultiLayerConfiguration config = new NeuralNetConfiguration.Builder()
-
-            .updater( new RmsProp(0.95))
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT).iterations(1)
+            .updater(Updater.RMSPROP).rmsDecay(0.95)
             .weightInit(WeightInit.XAVIER)
-            .l2(0.03)
+            .regularization(true).l2(0.03)
             .list()
             .layer(0, new DenseLayer.Builder().activation(Activation.TANH).nIn(nIn).nOut(6).build())     //Standard DenseLayer
             .layer(1, new CustomLayer.Builder()
@@ -76,13 +72,13 @@ public class CustomLayerExample {
                 .build())
             .layer(2, new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)                //Standard OutputLayer
                 .activation(Activation.SOFTMAX).nIn(7).nOut(nOut).build())
-            .build();
+            .pretrain(false).backprop(true).build();
 
 
         //First:  run some basic sanity checks on the configuration:
-        double customLayerL2 = ((BaseLayer)config.getConf(1).getLayer()).getL2();
+        double customLayerL2 = config.getConf(1).getLayer().getL2();
         System.out.println("l2 coefficient for custom layer: " + customLayerL2);                //As expected: custom layer inherits the global L2 parameter configuration
-        IUpdater customLayerUpdater = ((BaseLayer)config.getConf(1).getLayer()).getIUpdater();
+        Updater customLayerUpdater = config.getConf(1).getLayer().getUpdater();
         System.out.println("Updater for custom layer: " + customLayerUpdater);                  //As expected: custom layer inherits the global Updater configuration
 
         //Second: We need to ensure that that the JSON and YAML configuration works, with the custom layer
@@ -152,9 +148,10 @@ public class CustomLayerExample {
 
         MultiLayerConfiguration config = new NeuralNetConfiguration.Builder()
             .seed(12345)
-            .updater(new NoOp())
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT).iterations(1)
+            .updater(Updater.NONE).learningRate(1.0)
             .weightInit(WeightInit.DISTRIBUTION).dist(new NormalDistribution(0,1))              //Larger weight init than normal can help with gradient checks
-            .l2(0.03)
+            .regularization(true).l2(0.03)
             .list()
             .layer(0, new DenseLayer.Builder().activation(Activation.TANH).nIn(nIn).nOut(3).build())    //Standard DenseLayer
             .layer(1, new CustomLayer.Builder()
@@ -164,7 +161,7 @@ public class CustomLayerExample {
                 .build())
             .layer(2, new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)                //Standard OutputLayer
                 .activation(Activation.SOFTMAX).nIn(3).nOut(nOut).build())
-            .build();
+            .pretrain(false).backprop(true).build();
         MultiLayerNetwork net = new MultiLayerNetwork(config);
         net.init();
 

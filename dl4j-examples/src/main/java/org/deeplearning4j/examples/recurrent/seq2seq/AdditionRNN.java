@@ -1,21 +1,22 @@
 package org.deeplearning4j.examples.recurrent.seq2seq;
 
+import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.Updater;
 import org.deeplearning4j.nn.conf.graph.rnn.DuplicateToTimeSeriesVertex;
 import org.deeplearning4j.nn.conf.graph.rnn.LastTimeStepVertex;
 import org.deeplearning4j.nn.conf.inputs.InputType;
-import org.deeplearning4j.nn.conf.layers.LSTM;
+import org.deeplearning4j.nn.conf.layers.GravesLSTM;
 import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.buffer.DataBuffer;
+import org.nd4j.linalg.api.buffer.util.DataTypeUtil;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.MultiDataSet;
-import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 
@@ -70,6 +71,7 @@ public class AdditionRNN {
     public static int batchSize = 10;
     public static int totalBatches = 500;
     public static int nEpochs = 10;
+    public static int nIterations = 1;
 
     //Tweak the number of hidden nodes
     public static final int numHiddenNodes = 128;
@@ -80,14 +82,16 @@ public class AdditionRNN {
     public static void main(String[] args) throws Exception {
 
         //DataType is set to double for higher precision
-        Nd4j.setDataType(DataBuffer.Type.DOUBLE);
+        DataTypeUtil.setDTypeForContext(DataBuffer.Type.DOUBLE);
 
         //This is a custom iterator that returns MultiDataSets on each call of next - More details in comments in the class
         CustomSequenceIterator iterator = new CustomSequenceIterator(seed, batchSize, totalBatches);
 
         ComputationGraphConfiguration configuration = new NeuralNetConfiguration.Builder()
                 .weightInit(WeightInit.XAVIER)
-                .updater(new Adam(0.25))
+                .learningRate(0.25)
+                .updater(Updater.SGD)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT).iterations(nIterations)
                 .seed(seed)
                 .graphBuilder()
                 //These are the two inputs to the computation graph
@@ -95,7 +99,7 @@ public class AdditionRNN {
                 .setInputTypes(InputType.recurrent(FEATURE_VEC_SIZE), InputType.recurrent(FEATURE_VEC_SIZE))
                 //The inputs to the encoder will have size = minibatch x featuresize x timesteps
                 //Note that the network only knows of the feature vector size. It does not know how many time steps unless it sees an instance of the data
-                .addLayer("encoder", new LSTM.Builder().nIn(FEATURE_VEC_SIZE).nOut(numHiddenNodes).activation(Activation.SOFTSIGN).build(),"additionIn")
+                .addLayer("encoder", new GravesLSTM.Builder().nIn(FEATURE_VEC_SIZE).nOut(numHiddenNodes).activation(Activation.SOFTSIGN).build(),"additionIn")
                 //Create a vertex indicating the very last time step of the encoder layer needs to be directed to other places in the comp graph
                 .addVertex("lastTimeStep", new LastTimeStepVertex("additionIn"), "encoder")
                 //Create a vertex that allows the duplication of 2d input to a 3d input
@@ -103,9 +107,10 @@ public class AdditionRNN {
                 //Refer to the javadoc for more detail
                 .addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("sumOut"), "lastTimeStep")
                 //The inputs to the decoder will have size = size of output of last timestep of encoder (numHiddenNodes) + size of the other input to the comp graph,sumOut (feature vector size)
-                .addLayer("decoder", new LSTM.Builder().nIn(FEATURE_VEC_SIZE+numHiddenNodes).nOut(numHiddenNodes).activation(Activation.SOFTSIGN).build(), "sumOut","duplicateTimeStep")
+                .addLayer("decoder", new GravesLSTM.Builder().nIn(FEATURE_VEC_SIZE+numHiddenNodes).nOut(numHiddenNodes).activation(Activation.SOFTSIGN).build(), "sumOut","duplicateTimeStep")
                 .addLayer("output", new RnnOutputLayer.Builder().nIn(numHiddenNodes).nOut(FEATURE_VEC_SIZE).activation(Activation.SOFTMAX).lossFunction(LossFunctions.LossFunction.MCXENT).build(), "decoder")
                 .setOutputs("output")
+                .pretrain(false).backprop(true)
                 .build();
 
         ComputationGraph net = new ComputationGraph(configuration);
@@ -114,7 +119,7 @@ public class AdditionRNN {
 
         //Train model:
         int iEpoch = 0;
-        int testSize = 100;
+        int testSize = 20;
         Seq2SeqPredicter predictor = new Seq2SeqPredicter(net);
         while (iEpoch < nEpochs) {
             net.fit(iterator);
@@ -122,6 +127,7 @@ public class AdditionRNN {
             MultiDataSet testData = iterator.generateTest(testSize);
             INDArray predictions = predictor.output(testData);
             encode_decode_eval(predictions,testData.getFeatures()[0],testData.getLabels()[0]);
+            iEpoch++;
             /*
             (Comment/Uncomment) the following block of code to (see/or not see) how the output of the decoder is fed back into the input during test time
             */
@@ -129,14 +135,13 @@ public class AdditionRNN {
             testData = iterator.generateTest(3);
             predictor.output(testData,true);
             System.out.println("\n* = * = * = * = * = * = * = * = * = ** EPOCH " + iEpoch + " COMPLETE ** = * = * = * = * = * = * = * = * = * = * = * = * = * =");
-            iEpoch++;
         }
 
     }
 
     private static void encode_decode_eval(INDArray predictions, INDArray questions, INDArray answers) {
 
-        int nTests = (int)predictions.size(0);
+        int nTests = predictions.size(0);
         int wrong = 0;
         int correct = 0;
         String [] questionS = CustomSequenceIterator.oneHotDecode(questions);

@@ -1,8 +1,6 @@
 package org.deeplearning4j.examples.misc.customlayers.layer;
 
-import org.deeplearning4j.nn.workspace.ArrayType;
-import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
-import org.nd4j.linalg.primitives.Pair;
+import org.deeplearning4j.berkeley.Pair;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.deeplearning4j.nn.gradient.Gradient;
@@ -25,9 +23,23 @@ public class CustomLayerImpl extends BaseLayer<CustomLayer> { //Generic paramete
     }
 
 
+    @Override
+    public INDArray preOutput(INDArray x, boolean training) {
+        /*
+        The preOut method(s) calculate the activations (forward pass), before the activation function is applied.
+
+        Because we aren't doing anything different to a standard dense layer, we can use the existing implementation
+        for this. Other network types (RNNs, CNNs etc) will require you to implement this method.
+
+        For custom layers, you may also have to implement methods such as calcL1, calcL2, numParams, etc.
+         */
+
+        return super.preOutput(x, training);
+    }
+
 
     @Override
-    public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
+    public INDArray activate(boolean training) {
         /*
         The activate method is used for doing forward pass. Note that it relies on the pre-output method;
         essentially we are just applying the activation function (or, functions in this example).
@@ -35,13 +47,13 @@ public class CustomLayerImpl extends BaseLayer<CustomLayer> { //Generic paramete
         and another for the second half.
          */
 
-        INDArray output = preOutput(training, workspaceMgr);
+        INDArray output = preOutput(training);
         int columns = output.columns();
 
         INDArray firstHalf = output.get(NDArrayIndex.all(), NDArrayIndex.interval(0, columns / 2));
         INDArray secondHalf = output.get(NDArrayIndex.all(), NDArrayIndex.interval(columns / 2, columns));
 
-        IActivation activation1 = layerConf().getActivationFn();
+        IActivation activation1 = conf.getLayer().getActivationFn();
         IActivation activation2 = ((CustomLayer) conf.getLayer()).getSecondActivationFunction();
 
         //IActivation function instances modify the activation functions in-place
@@ -58,7 +70,7 @@ public class CustomLayerImpl extends BaseLayer<CustomLayer> { //Generic paramete
 
 
     @Override
-    public Pair<Gradient, INDArray> backpropGradient(INDArray epsilon, LayerWorkspaceMgr workspaceMgr) {
+    public Pair<Gradient, INDArray> backpropGradient(INDArray epsilon) {
         /*
         The baockprop gradient method here is very similar to the BaseLayer backprop gradient implementation
         The only major difference is the two activation functions we have added in this example.
@@ -81,7 +93,7 @@ public class CustomLayerImpl extends BaseLayer<CustomLayer> { //Generic paramete
 
         */
 
-        INDArray activationDerivative = preOutput(true, workspaceMgr);
+        INDArray activationDerivative = preOutput(true);
         int columns = activationDerivative.columns();
 
         INDArray firstHalf = activationDerivative.get(NDArrayIndex.all(), NDArrayIndex.interval(0, columns / 2));
@@ -90,7 +102,7 @@ public class CustomLayerImpl extends BaseLayer<CustomLayer> { //Generic paramete
         INDArray epsilonFirstHalf = epsilon.get(NDArrayIndex.all(), NDArrayIndex.interval(0, columns / 2));
         INDArray epsilonSecondHalf = epsilon.get(NDArrayIndex.all(), NDArrayIndex.interval(columns / 2, columns));
 
-        IActivation activation1 = layerConf().getActivationFn();
+        IActivation activation1 = conf.getLayer().getActivationFn();
         IActivation activation2 = ((CustomLayer) conf.getLayer()).getSecondActivationFunction();
 
         //IActivation backprop method modifies the 'firstHalf' and 'secondHalf' arrays in-place, to contain dL/dz
@@ -115,7 +127,7 @@ public class CustomLayerImpl extends BaseLayer<CustomLayer> { //Generic paramete
 
         INDArray epsilonNext = params.get(DefaultParamInitializer.WEIGHT_KEY).mmul(activationDerivative.transpose()).transpose();
 
-        return new Pair<>(ret, workspaceMgr.leverageTo(ArrayType.ACTIVATION_GRAD, epsilonNext));
+        return new Pair<>(ret, epsilonNext);
     }
 
 }

@@ -1,6 +1,7 @@
 package org.deeplearning4j.examples.nlp.paragraphvectors.tools;
 
-import org.nd4j.linalg.primitives.Pair;
+import lombok.NonNull;
+import org.deeplearning4j.berkeley.Pair;
 import org.deeplearning4j.models.embeddings.inmemory.InMemoryLookupTable;
 import org.deeplearning4j.models.word2vec.VocabWord;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -20,7 +21,7 @@ public class LabelSeeker {
     private List<String> labelsUsed;
     private InMemoryLookupTable<VocabWord> lookupTable;
 
-    public LabelSeeker(List<String> labelsUsed, InMemoryLookupTable<VocabWord> lookupTable) {
+    public LabelSeeker(@NonNull List<String> labelsUsed, @NonNull InMemoryLookupTable<VocabWord> lookupTable) {
         if (labelsUsed.isEmpty()) throw new IllegalStateException("You can't have 0 labels used for ParagraphVectors");
         this.lookupTable = lookupTable;
         this.labelsUsed = labelsUsed;
@@ -31,7 +32,7 @@ public class LabelSeeker {
      * and returns distances between this document, and previously trained categories
      * @return
      */
-    public List<Pair<String, Double>> getScores(INDArray vector) {
+    public List<Pair<String, Double>> getScores(@NonNull INDArray vector) {
         List<Pair<String, Double>> result = new ArrayList<>();
         for (String label: labelsUsed) {
             INDArray vecLabel = lookupTable.vector(label);

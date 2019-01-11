@@ -1,28 +1,29 @@
 package org.deeplearning4j.examples.recurrent.word2vecsentiment;
 
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.deeplearning4j.eval.Evaluation;
-import org.deeplearning4j.examples.utilities.DataUtilities;
 import org.deeplearning4j.models.embeddings.loader.WordVectorSerializer;
 import org.deeplearning4j.models.embeddings.wordvectors.WordVectors;
 import org.deeplearning4j.nn.conf.GradientNormalization;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
-import org.deeplearning4j.nn.conf.WorkspaceMode;
-import org.deeplearning4j.nn.conf.layers.LSTM;
+import org.deeplearning4j.nn.conf.Updater;
+import org.deeplearning4j.nn.conf.layers.GravesLSTM;
 import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.indexing.NDArrayIndex;
-import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
-import java.io.File;
+import java.io.*;
 import java.net.URL;
 
 /**Example: Given a movie review (raw text), classify that movie review as either positive or negative based on the words it contains.
@@ -70,23 +71,20 @@ public class Word2VecSentimentRNN {
         int vectorSize = 300;   //Size of the word vectors. 300 in the Google News model
         int nEpochs = 1;        //Number of epochs (full passes of training data) to train on
         int truncateReviewsToLength = 256;  //Truncate reviews with length (# words) greater than this
-        final int seed = 0;     //Seed for reproducibility
-
-        Nd4j.getMemoryManager().setAutoGcWindow(10000);  //https://deeplearning4j.org/workspaces
 
         //Set up network configuration
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-            .seed(seed)
-            .updater(new Adam(5e-3))
-            .l2(1e-5)
+            .updater(Updater.ADAM).adamMeanDecay(0.9).adamVarDecay(0.999)
+            .regularization(true).l2(1e-5)
             .weightInit(WeightInit.XAVIER)
             .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue).gradientNormalizationThreshold(1.0)
+            .learningRate(2e-2)
             .list()
-            .layer(0, new LSTM.Builder().nIn(vectorSize).nOut(256)
+            .layer(0, new GravesLSTM.Builder().nIn(vectorSize).nOut(256)
                 .activation(Activation.TANH).build())
             .layer(1, new RnnOutputLayer.Builder().activation(Activation.SOFTMAX)
                 .lossFunction(LossFunctions.LossFunction.MCXENT).nIn(256).nOut(2).build())
-            .build();
+            .pretrain(false).backprop(true).build();
 
         MultiLayerNetwork net = new MultiLayerNetwork(conf);
         net.init();
@@ -104,7 +102,19 @@ public class Word2VecSentimentRNN {
             System.out.println("Epoch " + i + " complete. Starting evaluation:");
 
             //Run evaluation. This is on 25k reviews, so can take some time
-            Evaluation evaluation = net.evaluate(test);
+            Evaluation evaluation = new Evaluation();
+            while (test.hasNext()) {
+                DataSet t = test.next();
+                INDArray features = t.getFeatureMatrix();
+                INDArray lables = t.getLabels();
+                INDArray inMask = t.getFeaturesMaskArray();
+                INDArray outMask = t.getLabelsMaskArray();
+                INDArray predicted = net.output(features, false, inMask, outMask);
+
+                evaluation.evalTimeSeries(lables, predicted, outMask);
+            }
+            test.reset();
+
             System.out.println(evaluation.stats());
         }
 
@@ -114,7 +124,7 @@ public class Word2VecSentimentRNN {
 
         INDArray features = test.loadFeaturesFromString(firstPositiveReview, truncateReviewsToLength);
         INDArray networkOutput = net.output(features);
-        long timeSeriesLength = networkOutput.size(2);
+        int timeSeriesLength = networkOutput.size(2);
         INDArray probabilitiesAtLastWord = networkOutput.get(NDArrayIndex.point(0), NDArrayIndex.all(), NDArrayIndex.point(timeSeriesLength - 1));
 
         System.out.println("\n\n-------------------------------");
@@ -126,7 +136,7 @@ public class Word2VecSentimentRNN {
         System.out.println("----- Example complete -----");
     }
 
-    public static void downloadData() throws Exception {
+    private static void downloadData() throws Exception {
         //Create directory if required
         File directory = new File(DATA_PATH);
         if(!directory.exists()) directory.mkdir();
@@ -142,18 +152,52 @@ public class Word2VecSentimentRNN {
             FileUtils.copyURLToFile(new URL(DATA_URL), archiveFile);
             System.out.println("Data (.tar.gz file) downloaded to " + archiveFile.getAbsolutePath());
             //Extract tar.gz file to output directory
-            DataUtilities.extractTarGz(archizePath, DATA_PATH);
+            extractTarGz(archizePath, DATA_PATH);
         } else {
             //Assume if archive (.tar.gz) exists, then data has already been extracted
             System.out.println("Data (.tar.gz file) already exists at " + archiveFile.getAbsolutePath());
             if( !extractedFile.exists()){
             	//Extract tar.gz file to output directory
-            	DataUtilities.extractTarGz(archizePath, DATA_PATH);
+            	extractTarGz(archizePath, DATA_PATH);
             } else {
             	System.out.println("Data (extracted) already exists at " + extractedFile.getAbsolutePath());
             }
         }
     }
 
+    private static final int BUFFER_SIZE = 4096;
+    private static void extractTarGz(String filePath, String outputPath) throws IOException {
+        int fileCount = 0;
+        int dirCount = 0;
+        System.out.print("Extracting files");
+        try(TarArchiveInputStream tais = new TarArchiveInputStream(
+                new GzipCompressorInputStream( new BufferedInputStream( new FileInputStream(filePath))))){
+            TarArchiveEntry entry;
 
+            /** Read the tar entries using the getNextEntry method **/
+            while ((entry = (TarArchiveEntry) tais.getNextEntry()) != null) {
+                //System.out.println("Extracting file: " + entry.getName());
+
+                //Create directories as required
+                if (entry.isDirectory()) {
+                    new File(outputPath + entry.getName()).mkdirs();
+                    dirCount++;
+                }else {
+                    int count;
+                    byte data[] = new byte[BUFFER_SIZE];
+
+                    FileOutputStream fos = new FileOutputStream(outputPath + entry.getName());
+                    BufferedOutputStream dest = new BufferedOutputStream(fos,BUFFER_SIZE);
+                    while ((count = tais.read(data, 0, BUFFER_SIZE)) != -1) {
+                        dest.write(data, 0, count);
+                    }
+                    dest.close();
+                    fileCount++;
+                }
+                if(fileCount % 1000 == 0) System.out.print(".");
+            }
+        }
+
+        System.out.println("\n" + fileCount + " files and " + dirCount + " directories extracted to: " + outputPath);
+    }
 }

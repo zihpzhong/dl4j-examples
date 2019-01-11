@@ -2,8 +2,10 @@ package org.deeplearning4j.examples.multigpu;
 
 import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
+import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.Updater;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
@@ -16,11 +18,11 @@ import org.deeplearning4j.parallelism.ParallelWrapper;
 import org.nd4j.jita.conf.CudaEnvironment;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.buffer.DataBuffer;
+import org.nd4j.linalg.api.buffer.util.DataTypeUtil;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +39,10 @@ public class MultiGpuLenetMnistExample {
 
     public static void main(String[] args) throws Exception {
         // PLEASE NOTE: For CUDA FP16 precision support is available
-        Nd4j.setDataType(DataBuffer.Type.HALF);
+        DataTypeUtil.setDTypeForContext(DataBuffer.Type.HALF);
 
         // temp workaround for backend initialization
+        Nd4j.create(1);
 
         CudaEnvironment.getInstance().getConfiguration()
             // key option enabled
@@ -57,6 +60,7 @@ public class MultiGpuLenetMnistExample {
         // for GPU you usually want to have higher batchSize
         int batchSize = 128;
         int nEpochs = 10;
+        int iterations = 1;
         int seed = 123;
 
         log.info("Load data....");
@@ -66,10 +70,16 @@ public class MultiGpuLenetMnistExample {
         log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
             .seed(seed)
-            .l2(0.0005)
+            .iterations(iterations) // Training iterations as above
+            .regularization(true).l2(0.0005)
+                /*
+                    Uncomment the following for learning decay and bias
+                 */
+            .learningRate(.01)//.biasLearningRate(0.02)
+            //.learningRateDecayPolicy(LearningRatePolicy.Inverse).lrPolicyDecayRate(0.001).lrPolicyPower(0.75)
             .weightInit(WeightInit.XAVIER)
-            .updater(new Nesterovs.Builder().learningRate(.01).build())
-            .biasUpdater(new Nesterovs.Builder().learningRate(0.02).build())
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+            .updater(Updater.NESTEROVS).momentum(0.9)
             .list()
             .layer(0, new ConvolutionLayer.Builder(5, 5)
                 //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
@@ -108,14 +118,17 @@ public class MultiGpuLenetMnistExample {
             // DataSets prefetching options. Set this value with respect to number of actual devices
             .prefetchBuffer(24)
 
-            // set number of workers equal to number of available devices. x1-x2 are good values to start with
-            .workers(2)
+            // set number of workers equal or higher then number of available devices. x1-x2 are good values to start with
+            .workers(4)
 
             // rare averaging improves performance, but might reduce model accuracy
             .averagingFrequency(3)
 
             // if set to TRUE, on every averaging model score will be reported
             .reportScoreAfterAveraging(true)
+
+            // optinal parameter, set to false ONLY if your system has support P2P memory access across PCIe (hint: AWS do not support P2P)
+            .useLegacyAveraging(true)
 
             .build();
 
@@ -143,7 +156,7 @@ public class MultiGpuLenetMnistExample {
         Evaluation eval = new Evaluation(outputNum);
         while(mnistTest.hasNext()){
             DataSet ds = mnistTest.next();
-            INDArray output = model.output(ds.getFeatures(), false);
+            INDArray output = model.output(ds.getFeatureMatrix(), false);
             eval.eval(ds.getLabels(), output);
         }
         log.info(eval.stats());

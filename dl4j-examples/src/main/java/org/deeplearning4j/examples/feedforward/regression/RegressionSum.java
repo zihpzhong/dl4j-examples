@@ -14,7 +14,6 @@ import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.util.Collections;
@@ -28,6 +27,8 @@ import java.util.Random;
 public class RegressionSum {
     //Random number generator seed, for reproducability
     public static final int seed = 12345;
+    //Number of iterations per minibatch
+    public static final int iterations = 1;
     //Number of epochs (full passes of the data)
     public static final int nEpochs = 200;
     //Number of data points
@@ -54,8 +55,11 @@ public class RegressionSum {
         int nHidden = 10;
         MultiLayerNetwork net = new MultiLayerNetwork(new NeuralNetConfiguration.Builder()
                 .seed(seed)
+                .iterations(iterations)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .learningRate(learningRate)
                 .weightInit(WeightInit.XAVIER)
-                .updater(new Nesterovs(learningRate, 0.9))
+                .updater(Updater.NESTEROVS).momentum(0.9)
                 .list()
                 .layer(0, new DenseLayer.Builder().nIn(numInput).nOut(nHidden)
                         .activation(Activation.TANH)
@@ -63,7 +67,7 @@ public class RegressionSum {
                 .layer(1, new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
                         .activation(Activation.IDENTITY)
                         .nIn(nHidden).nOut(numOutputs).build())
-                .build()
+                .pretrain(false).backprop(true).build()
         );
         net.init();
         net.setListeners(new ScoreIterationListener(1));

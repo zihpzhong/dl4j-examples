@@ -17,8 +17,6 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.Nesterovs;
-import org.nd4j.linalg.util.ArrayUtil;
 
 import java.util.*;
 
@@ -30,6 +28,7 @@ import java.util.*;
  */
 public class CustomLossExample {
     public static final int seed = 12345;
+    public static final int iterations = 1;
     public static final int nEpochs = 500;
     public static final int nSamples = 1000;
     public static final int batchSize = 100;
@@ -60,8 +59,11 @@ public class CustomLossExample {
         int nHidden = 10;
         MultiLayerNetwork net = new MultiLayerNetwork(new NeuralNetConfiguration.Builder()
             .seed(seed)
+            .iterations(iterations)
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+            .learningRate(learningRate)
             .weightInit(WeightInit.XAVIER)
-            .updater(new Nesterovs(learningRate, 0.95))
+            .updater(Updater.NESTEROVS).momentum(0.95)
             .list()
             .layer(0, new DenseLayer.Builder().nIn(numInput).nOut(nHidden)
                 .activation(Activation.TANH)
@@ -71,7 +73,7 @@ public class CustomLossExample {
             .layer(1, new OutputLayer.Builder(new CustomLossL1L2())
                 .activation(Activation.IDENTITY)
                 .nIn(nHidden).nOut(numOutputs).build())
-            .build()
+            .pretrain(false).backprop(true).build()
         );
         net.init();
         net.setListeners(new ScoreIterationListener(100));
@@ -130,7 +132,7 @@ public class CustomLossExample {
                 INDArray grad = lossfn.computeGradient(label,preOut,activation,null);
                 NdIndexIterator iterPreOut = new NdIndexIterator(preOut.shape());
                 while (iterPreOut.hasNext()) {
-                    int[] next = ArrayUtil.toInts(iterPreOut.next());
+                    int[] next = iterPreOut.next();
                     //checking gradient with total score wrt to each output feature in label
                     double before = preOut.getDouble(next);
                     preOut.putScalar(next, before + epsilon);

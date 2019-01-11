@@ -1,6 +1,6 @@
 package org.deeplearning4j.examples.rl4j;
 
-import java.io.IOException;
+
 import org.deeplearning4j.rl4j.space.Box;
 import org.deeplearning4j.rl4j.learning.sync.qlearning.QLearning;
 import org.deeplearning4j.rl4j.learning.sync.qlearning.discrete.QLearningDiscreteDense;
@@ -9,7 +9,6 @@ import org.deeplearning4j.rl4j.network.dqn.DQNFactoryStdDense;
 import org.deeplearning4j.rl4j.policy.DQNPolicy;
 import org.deeplearning4j.rl4j.space.DiscreteSpace;
 import org.deeplearning4j.rl4j.util.DataManager;
-import org.nd4j.linalg.learning.config.Adam;
 
 import java.util.logging.Logger;
 
@@ -41,15 +40,20 @@ public class Cartpole
             );
 
     public static DQNFactoryStdDense.Configuration CARTPOLE_NET =
-        DQNFactoryStdDense.Configuration.builder()
-            .l2(0.001).updater(new Adam(0.0005)).numHiddenNodes(16).numLayer(3).build();
+            new DQNFactoryStdDense.Configuration(
+                    3,         //number of layers
+                    16,        //number of hidden nodes
+                    0.001,     //learning rate
+                    0.00       //l2 regularization
+            );
 
-    public static void main(String[] args) throws IOException {
+    public static void main( String[] args )
+    {
         cartPole();
         loadCartpole();
     }
 
-    public static void cartPole() throws IOException {
+    public static void cartPole() {
 
         //record the training data in rl4j-data in a new folder (save)
         DataManager manager = new DataManager(true);
@@ -80,7 +84,7 @@ public class Cartpole
     }
 
 
-    public static void loadCartpole() throws IOException {
+    public static void loadCartpole(){
 
         //showcase serialization by using the trained agent on a new similar mdp (but render it this time)
 
