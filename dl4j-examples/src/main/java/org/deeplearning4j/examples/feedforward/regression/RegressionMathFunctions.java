@@ -23,6 +23,7 @@ import org.jfree.data.xy.XYSeriesCollection;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import javax.swing.*;
@@ -42,8 +43,6 @@ public class RegressionMathFunctions {
 
     //Random number generator seed, for reproducability
     public static final int seed = 12345;
-    //Number of iterations per minibatch
-    public static final int iterations = 1;
     //Number of epochs (full passes of the data)
     public static final int nEpochs = 2000;
     //How frequently should we plot the network output?
@@ -93,11 +92,8 @@ public class RegressionMathFunctions {
         final int numHiddenNodes = 50;
         return new NeuralNetConfiguration.Builder()
                 .seed(seed)
-                .iterations(iterations)
-                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .learningRate(learningRate)
                 .weightInit(WeightInit.XAVIER)
-                .updater(Updater.NESTEROVS).momentum(0.9)
+                .updater(new Nesterovs(learningRate, 0.9))
                 .list()
                 .layer(0, new DenseLayer.Builder().nIn(numInputs).nOut(numHiddenNodes)
                         .activation(Activation.TANH).build())
@@ -106,7 +102,7 @@ public class RegressionMathFunctions {
                 .layer(2, new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
                         .activation(Activation.IDENTITY)
                         .nIn(numHiddenNodes).nOut(numOutputs).build())
-                .pretrain(false).backprop(true).build();
+                .build();
     }
 
     /** Create a DataSetIterator for training

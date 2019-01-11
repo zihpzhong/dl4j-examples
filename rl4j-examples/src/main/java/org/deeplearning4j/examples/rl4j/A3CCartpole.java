@@ -1,12 +1,16 @@
 package org.deeplearning4j.examples.rl4j;
 
+import java.io.IOException;
+import java.util.Random;
 import org.deeplearning4j.rl4j.space.Box;
 import org.deeplearning4j.rl4j.learning.async.a3c.discrete.A3CDiscrete;
 import org.deeplearning4j.rl4j.learning.async.a3c.discrete.A3CDiscreteDense;
 import org.deeplearning4j.rl4j.mdp.gym.GymEnv;
 import org.deeplearning4j.rl4j.network.ac.ActorCriticFactorySeparate;
 import org.deeplearning4j.rl4j.network.ac.ActorCriticFactorySeparateStdDense;
+import org.deeplearning4j.rl4j.policy.ACPolicy;
 import org.deeplearning4j.rl4j.util.DataManager;
+import org.nd4j.linalg.learning.config.Adam;
 
 /**
  * @author rubenfiszel (ruben.fiszel@epfl.ch) on 8/18/16.
@@ -30,21 +34,14 @@ public class A3CCartpole {
             );
 
 
+    private static final ActorCriticFactorySeparateStdDense.Configuration CARTPOLE_NET_A3C =  ActorCriticFactorySeparateStdDense.Configuration
+    .builder().updater(new Adam(1e-2)).l2(0).numHiddenNodes(16).numLayer(3).build();
 
-    private static final ActorCriticFactorySeparateStdDense.Configuration CARTPOLE_NET_A3C = new ActorCriticFactorySeparateStdDense.Configuration(
-            3,                      //number of layers
-            16,                     //number of hidden nodes
-            0.001,                 //learning rate
-            0.000                   //l2 regularization
-    );
-
-
-    public static void main( String[] args )
-    {
+    public static void main(String[] args) throws IOException {
         A3CcartPole();
     }
 
-    public static void A3CcartPole() {
+    public static void A3CcartPole() throws IOException {
 
         //record the training data in rl4j-data in a new folder
         DataManager manager = new DataManager(true);
@@ -58,16 +55,19 @@ public class A3CCartpole {
         }
 
         //define the training
-        A3CDiscreteDense<Box> dql = new A3CDiscreteDense<Box>(mdp, CARTPOLE_NET_A3C, CARTPOLE_A3C, manager);
+        A3CDiscreteDense<Box> a3c = new A3CDiscreteDense<Box>(mdp, CARTPOLE_NET_A3C, CARTPOLE_A3C, manager);
 
         //start the training
-        dql.train();
+        a3c.train();
+
+        ACPolicy<Box> pol = a3c.getPolicy();
+
+        pol.save("/tmp/val1/", "/tmp/pol1");
 
         //close the mdp (http connection)
         mdp.close();
 
+        //reload the policy, will be equal to "pol", but without the randomness
+        ACPolicy<Box> pol2 = ACPolicy.load("/tmp/val1/", "/tmp/pol1");
     }
-
-
-
 }

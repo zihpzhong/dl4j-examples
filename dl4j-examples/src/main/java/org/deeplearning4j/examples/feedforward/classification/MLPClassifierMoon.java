@@ -22,6 +22,7 @@ import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.io.ClassPathResource;
+import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 
 /**
@@ -62,10 +63,7 @@ public class MLPClassifierMoon {
         //log.info("Build model....");
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
-                .iterations(1)
-                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .learningRate(learningRate)
-                .updater(Updater.NESTEROVS).momentum(0.9)
+                .updater(new Nesterovs(learningRate, 0.9))
                 .list()
                 .layer(0, new DenseLayer.Builder().nIn(numInputs).nOut(numHiddenNodes)
                         .weightInit(WeightInit.XAVIER)
@@ -75,7 +73,7 @@ public class MLPClassifierMoon {
                         .weightInit(WeightInit.XAVIER)
                         .activation(Activation.SOFTMAX)
                         .nIn(numHiddenNodes).nOut(numOutputs).build())
-                .pretrain(false).backprop(true).build();
+                .build();
 
 
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
@@ -90,7 +88,7 @@ public class MLPClassifierMoon {
         Evaluation eval = new Evaluation(numOutputs);
         while(testIter.hasNext()){
             DataSet t = testIter.next();
-            INDArray features = t.getFeatureMatrix();
+            INDArray features = t.getFeatures();
             INDArray labels = t.getLabels();
             INDArray predicted = model.output(features,false);
 
@@ -130,7 +128,7 @@ public class MLPClassifierMoon {
         INDArray predictionsAtXYPoints = model.output(allXYPoints);
 
         //Get all of the training data in a single array, and plot it:
-        rr.initialize(new FileSplit(new File("dl4j-examples/src/main/resources/classification/moon_data_train.csv")));
+        rr.initialize(new FileSplit(new ClassPathResource("/classification/moon_data_train.csv").getFile()));
         rr.reset();
         int nTrainPoints = 2000;
         trainIter = new RecordReaderDataSetIterator(rr,nTrainPoints,0,2);
@@ -139,7 +137,7 @@ public class MLPClassifierMoon {
 
 
         //Get test data, run the test data through the network to generate predictions, and plot those predictions:
-        rrTest.initialize(new FileSplit(new File("dl4j-examples/src/main/resources/classification/moon_data_eval.csv")));
+        rrTest.initialize(new FileSplit(new ClassPathResource("/classification/moon_data_eval.csv").getFile()));
         rrTest.reset();
         int nTestPoints = 1000;
         testIter = new RecordReaderDataSetIterator(rrTest,nTestPoints,0,2);

@@ -1,19 +1,21 @@
 package org.deeplearning4j.examples.recurrent.basic;
 
-import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration.ListBuilder;
-import org.deeplearning4j.nn.conf.Updater;
-import org.deeplearning4j.nn.conf.layers.GravesLSTM;
+import org.deeplearning4j.nn.conf.layers.LSTM;
 import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
+import org.deeplearning4j.nn.conf.layers.recurrent.SimpleRnn;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.api.ops.impl.indexaccum.IMax;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.learning.config.AMSGrad;
+import org.nd4j.linalg.learning.config.RmsProp;
 import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 
 import java.util.ArrayList;
@@ -22,51 +24,49 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * This example trains a RNN. WHen trained we only have to put the first
+ * This example trains a RNN. When trained we only have to put the first
  * character of LEARNSTRING to the RNN, and it will recite the following chars
  *
  * @author Peter Grossmann
  */
 public class BasicRNNExample {
 
-	// define a sentence to learn
-	public static final char[] LEARNSTRING = "Der Cottbuser Postkutscher putzt den Cottbuser Postkutschkasten.".toCharArray();
+	// define a sentence to learn.
+    // Add a special character at the beginning so the RNN learns the complete string and ends with the marker.
+	private static final char[] LEARNSTRING = "*Der Cottbuser Postkutscher putzt den Cottbuser Postkutschkasten.".toCharArray();
 
 	// a list of all possible characters
-	public static final List<Character> LEARNSTRING_CHARS_LIST = new ArrayList<Character>();
+	private static final List<Character> LEARNSTRING_CHARS_LIST = new ArrayList<>();
 
 	// RNN dimensions
-	public static final int HIDDEN_LAYER_WIDTH = 50;
-	public static final int HIDDEN_LAYER_CONT = 2;
-	public static final Random r = new Random(7894);
+	private static final int HIDDEN_LAYER_WIDTH = 50;
+	private static final int HIDDEN_LAYER_CONT = 2;
+    private static final Random r = new Random(7894);
 
 	public static void main(String[] args) {
 
 		// create a dedicated list of possible chars in LEARNSTRING_CHARS_LIST
-		LinkedHashSet<Character> LEARNSTRING_CHARS = new LinkedHashSet<Character>();
+		LinkedHashSet<Character> LEARNSTRING_CHARS = new LinkedHashSet<>();
 		for (char c : LEARNSTRING)
 			LEARNSTRING_CHARS.add(c);
 		LEARNSTRING_CHARS_LIST.addAll(LEARNSTRING_CHARS);
 
 		// some common parameters
 		NeuralNetConfiguration.Builder builder = new NeuralNetConfiguration.Builder();
-		builder.iterations(10);
-		builder.learningRate(0.001);
-		builder.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT);
 		builder.seed(123);
 		builder.biasInit(0);
 		builder.miniBatch(false);
-		builder.updater(Updater.RMSPROP);
+		builder.updater(new RmsProp(0.001));
 		builder.weightInit(WeightInit.XAVIER);
 
 		ListBuilder listBuilder = builder.list();
 
-		// first difference, for rnns we need to use GravesLSTM.Builder
+		// first difference, for rnns we need to use LSTM.Builder
 		for (int i = 0; i < HIDDEN_LAYER_CONT; i++) {
-			GravesLSTM.Builder hiddenLayerBuilder = new GravesLSTM.Builder();
+			LSTM.Builder hiddenLayerBuilder = new LSTM.Builder();
 			hiddenLayerBuilder.nIn(i == 0 ? LEARNSTRING_CHARS.size() : HIDDEN_LAYER_WIDTH);
 			hiddenLayerBuilder.nOut(HIDDEN_LAYER_WIDTH);
-			// adopted activation function from GravesLSTMCharModellingExample
+			// adopted activation function from LSTMCharModellingExample
 			// seems to work well with RNNs
 			hiddenLayerBuilder.activation(Activation.TANH);
 			listBuilder.layer(i, hiddenLayerBuilder.build());
@@ -102,7 +102,7 @@ public class BasicRNNExample {
 		int samplePos = 0;
 		for (char currentChar : LEARNSTRING) {
 			// small hack: when currentChar is the last, take the first char as
-			// nextChar - not really required
+			// nextChar - not really required. Added to this hack by adding a starter first character.
 			char nextChar = LEARNSTRING[(samplePos + 1) % (LEARNSTRING.length)];
 			// input neuron for current-char is 1 at "samplePos"
 			input.putScalar(new int[] { 0, LEARNSTRING_CHARS_LIST.indexOf(currentChar), samplePos }, 1);
@@ -123,8 +123,8 @@ public class BasicRNNExample {
 			// clear current stance from the last example
 			net.rnnClearPreviousState();
 
-			// put the first caracter into the rrn as an initialisation
-			INDArray testInit = Nd4j.zeros(LEARNSTRING_CHARS_LIST.size());
+			// put the first character into the rrn as an initialisation
+			INDArray testInit = Nd4j.zeros(1,LEARNSTRING_CHARS_LIST.size(), 1);
 			testInit.putScalar(LEARNSTRING_CHARS_LIST.indexOf(LEARNSTRING[0]), 1);
 
 			// run one step -> IMPORTANT: rnnTimeStep() must be called, not
@@ -132,43 +132,24 @@ public class BasicRNNExample {
 			// the output shows what the net thinks what should come next
 			INDArray output = net.rnnTimeStep(testInit);
 
-			// now the net sould guess LEARNSTRING.length mor characters
-			for (int j = 0; j < LEARNSTRING.length; j++) {
+			// now the net should guess LEARNSTRING.length more characters
+            for (char dummy : LEARNSTRING) {
 
-				// first process the last output of the network to a concrete
-				// neuron, the neuron with the highest output cas the highest
-				// cance to get chosen
-				double[] outputProbDistribution = new double[LEARNSTRING_CHARS.size()];
-				for (int k = 0; k < outputProbDistribution.length; k++) {
-					outputProbDistribution[k] = output.getDouble(k);
-				}
-				int sampledCharacterIdx = findIndexOfHighestValue(outputProbDistribution);
+                // first process the last output of the network to a concrete
+                // neuron, the neuron with the highest output has the highest
+                // chance to get chosen
+                int sampledCharacterIdx = Nd4j.getExecutioner().exec(new IMax(output), 1).getInt(0);
 
-				// print the chosen output
-				System.out.print(LEARNSTRING_CHARS_LIST.get(sampledCharacterIdx));
+                // print the chosen output
+                System.out.print(LEARNSTRING_CHARS_LIST.get(sampledCharacterIdx));
 
-				// use the last output as input
-				INDArray nextInput = Nd4j.zeros(LEARNSTRING_CHARS_LIST.size());
-				nextInput.putScalar(sampledCharacterIdx, 1);
-				output = net.rnnTimeStep(nextInput);
+                // use the last output as input
+                INDArray nextInput = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), 1);
+                nextInput.putScalar(sampledCharacterIdx, 1);
+                output = net.rnnTimeStep(nextInput);
 
-			}
+            }
 			System.out.print("\n");
-
 		}
-
 	}
-
-	private static int findIndexOfHighestValue(double[] distribution) {
-		int maxValueIndex = 0;
-		double maxValue = 0;
-		for (int i = 0; i < distribution.length; i++) {
-			if(distribution[i] > maxValue) {
-				maxValue = distribution[i];
-				maxValueIndex = i;
-			}
-		}
-		return maxValueIndex;
-	}
-
 }

@@ -1,7 +1,7 @@
 package org.deeplearning4j.examples.nlp.paragraphvectors;
 
 import org.datavec.api.util.ClassPathResource;
-import org.deeplearning4j.berkeley.Pair;
+import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.examples.nlp.paragraphvectors.tools.LabelSeeker;
 import org.deeplearning4j.examples.nlp.paragraphvectors.tools.MeansBuilder;
 import org.deeplearning4j.models.embeddings.inmemory.InMemoryLookupTable;
@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -91,7 +92,7 @@ public class ParagraphVectorsClassifierExample {
       paragraphVectors.fit();
     }
 
-    void checkUnlabeledData() throws FileNotFoundException {
+    void checkUnlabeledData() throws IOException {
       /*
       At this point we assume that we have model built and we can check
       which categories our unlabeled document falls into.
@@ -124,7 +125,7 @@ public class ParagraphVectorsClassifierExample {
           So, labels on these two documents are used like titles,
           just to visualize our classification done properly
          */
-         log.info("Document '" + document.getLabel() + "' falls into the following categories: ");
+         log.info("Document '" + document.getLabels() + "' falls into the following categories: ");
          for (Pair<String, Double> score: scores) {
              log.info("        " + score.getFirst() + ": " + score.getSecond());
          }

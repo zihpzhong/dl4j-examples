@@ -1,11 +1,9 @@
 package org.deeplearning4j.examples.recurrent.character;
 
-import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.BackpropType;
 import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
-import org.deeplearning4j.nn.conf.Updater;
-import org.deeplearning4j.nn.conf.layers.GravesLSTM;
+import org.deeplearning4j.nn.conf.layers.LSTM;
 import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.weights.WeightInit;
@@ -14,12 +12,13 @@ import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.util.Random;
 
 /**
- * This example is almost identical to the GravesLSTMCharModellingExample, except that it utilizes the ComputationGraph
+ * This example is almost identical to the LSTMCharModellingExample, except that it utilizes the ComputationGraph
  * architecture instead of MultiLayerNetwork architecture. See the javadoc in that example for details.
  * For more details on the ComputationGraph architecture, see http://deeplearning4j.org/compgraph
  *
@@ -34,7 +33,7 @@ import java.util.Random;
 public class CompGraphLSTMExample {
 
     public static void main( String[] args ) throws Exception {
-        int lstmLayerSize = 200;					//Number of units in each GravesLSTM layer
+        int lstmLayerSize = 200;					//Number of units in each LSTM layer
         int miniBatchSize = 32;						//Size of mini batch to use when  training
         int exampleLength = 1000;					//Length of each training example sequence to use. This could certainly be increased
         int tbpttLength = 50;                       //Length for truncated backpropagation through time. i.e., do parameter updates ever 50 characters
@@ -48,35 +47,30 @@ public class CompGraphLSTMExample {
         Random rng = new Random(12345);
 
         //Get a DataSetIterator that handles vectorization of text into something we can use to train
-        // our GravesLSTM network.
-        CharacterIterator iter = GravesLSTMCharModellingExample.getShakespeareIterator(miniBatchSize, exampleLength);
+        // our LSTM network.
+        CharacterIterator iter = LSTMCharModellingExample.getShakespeareIterator(miniBatchSize, exampleLength);
         int nOut = iter.totalOutcomes();
 
         //Set up network configuration:
         ComputationGraphConfiguration conf = new NeuralNetConfiguration.Builder()
-            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT).iterations(1)
-            .learningRate(0.1)
-            .rmsDecay(0.95)
             .seed(12345)
-            .regularization(true)
-            .l2(0.001)
+            .l2(0.0001)
             .weightInit(WeightInit.XAVIER)
+            .updater(new Adam(0.005))
             .graphBuilder()
             .addInputs("input") //Give the input a name. For a ComputationGraph with multiple inputs, this also defines the input array orders
             //First layer: name "first", with inputs from the input called "input"
-            .addLayer("first", new GravesLSTM.Builder().nIn(iter.inputColumns()).nOut(lstmLayerSize)
-                .updater(Updater.RMSPROP).activation(Activation.TANH).build(),"input")
+            .addLayer("first", new LSTM.Builder().nIn(iter.inputColumns()).nOut(lstmLayerSize)
+                .activation(Activation.TANH).build(),"input")
             //Second layer, name "second", with inputs from the layer called "first"
-            .addLayer("second", new GravesLSTM.Builder().nIn(lstmLayerSize).nOut(lstmLayerSize)
-                .updater(Updater.RMSPROP)
+            .addLayer("second", new LSTM.Builder().nIn(lstmLayerSize).nOut(lstmLayerSize)
                 .activation(Activation.TANH).build(),"first")
             //Output layer, name "outputlayer" with inputs from the two layers called "first" and "second"
             .addLayer("outputLayer", new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-                .activation(Activation.SOFTMAX).updater(Updater.RMSPROP)
+                .activation(Activation.SOFTMAX)
                 .nIn(2*lstmLayerSize).nOut(nOut).build(),"first","second")
             .setOutputs("outputLayer")  //List the output. For a ComputationGraph with multiple outputs, this also defines the input array orders
             .backpropType(BackpropType.TruncatedBPTT).tBPTTForwardLength(tbpttLength).tBPTTBackwardLength(tbpttLength)
-            .pretrain(false).backprop(true)
             .build();
 
         ComputationGraph net = new ComputationGraph(conf);
@@ -84,9 +78,9 @@ public class CompGraphLSTMExample {
         net.setListeners(new ScoreIterationListener(1));
 
         //Print the  number of parameters in the network (and for each layer)
-        int totalNumParams = 0;
+        long totalNumParams = 0;
         for( int i=0; i<net.getNumLayers(); i++ ){
-            int nParams = net.getLayer(i).numParams();
+            long nParams = net.getLayer(i).numParams();
             System.out.println("Number of parameters in layer " + i + ": " + nParams);
             totalNumParams += nParams;
         }
@@ -122,7 +116,7 @@ public class CompGraphLSTMExample {
      * Note that the initalization is used for all samples
      * @param initialization String, may be null. If null, select a random character as initialization for all samples
      * @param charactersToSample Number of characters to sample from network (excluding initialization)
-     * @param net MultiLayerNetwork with one or more GravesLSTM/RNN layers and a softmax output layer
+     * @param net MultiLayerNetwork with one or more LSTM/RNN layers and a softmax output layer
      * @param iter CharacterIterator. Used for going from indexes back to characters
      */
     private static String[] sampleCharactersFromNetwork( String initialization, ComputationGraph net,
@@ -149,7 +143,7 @@ public class CompGraphLSTMExample {
         //Sampling is done in parallel here
         net.rnnClearPreviousState();
         INDArray output = net.rnnTimeStep(initializationInput)[0];
-        output = output.tensorAlongDimension(output.size(2)-1,1,0);	//Gets the last time step output
+        output = output.tensorAlongDimension((int)output.size(2)-1,1,0);	//Gets the last time step output
 
         for( int i=0; i<charactersToSample; i++ ){
             //Set up next input (single time step) by sampling from previous output
@@ -158,7 +152,7 @@ public class CompGraphLSTMExample {
             for( int s=0; s<numSamples; s++ ){
                 double[] outputProbDistribution = new double[iter.totalOutcomes()];
                 for( int j=0; j<outputProbDistribution.length; j++ ) outputProbDistribution[j] = output.getDouble(s,j);
-                int sampledCharacterIdx = GravesLSTMCharModellingExample.sampleFromDistribution(outputProbDistribution,rng);
+                int sampledCharacterIdx = LSTMCharModellingExample.sampleFromDistribution(outputProbDistribution,rng);
 
                 nextInput.putScalar(new int[]{s,sampledCharacterIdx}, 1.0f);		//Prepare next time step input
                 sb[s].append(iter.convertIndexToCharacter(sampledCharacterIdx));	//Add sampled character to StringBuilder (human readable output)

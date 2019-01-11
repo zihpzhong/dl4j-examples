@@ -1,27 +1,16 @@
 package org.deeplearning4j.examples.misc.lossfunctions;
 
-import lombok.EqualsAndHashCode;
-import org.apache.commons.math3.ode.MainStateJacobianProvider;
-import org.apache.commons.math3.util.Pair;
-import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.activations.IActivation;
-import org.nd4j.linalg.activations.impl.ActivationIdentity;
-import org.nd4j.linalg.api.iter.NdIndexIterator;
 import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.ILossFunction;
-import org.nd4j.linalg.lossfunctions.LossUtil;
 import org.nd4j.linalg.ops.transforms.Transforms;
+import org.nd4j.linalg.primitives.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.*;
 
 /**
  * Created by susaneraly on 11/8/16.
  */
-@EqualsAndHashCode
 public class CustomLossL1L2 implements ILossFunction {
 
     /* This example illustrates how to implements a custom loss function that can then be applied to training your neural net
@@ -127,11 +116,32 @@ public class CustomLossL1L2 implements ILossFunction {
                 computeGradient(labels, preOutput, activationFn, mask));
     }
 
+    @Override
+    public String name() {
+        return "CustomLossL1L2";
+    }
+
 
     @Override
     public String toString() {
         return "CustomLossL1L2()";
     }
 
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof CustomLossL1L2)) return false;
+        final CustomLossL1L2 other = (CustomLossL1L2) o;
+        if (!other.canEqual((Object) this)) return false;
+        return true;
+    }
+
+    public int hashCode() {
+        int result = 1;
+        return result;
+    }
+
+    protected boolean canEqual(Object other) {
+        return other instanceof CustomLossL1L2;
+    }
 }
 
